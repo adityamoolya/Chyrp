@@ -2,7 +2,6 @@
 'use client';
 import { notFound } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
 import { format } from 'date-fns';
 import { posts } from '@/lib/data';
 import type { Post } from '@/lib/types';
@@ -17,19 +16,21 @@ import { SimilarPostsCard } from '@/components/ai/similar-posts-card';
 import { CommentsSection } from '@/components/comments-section';
 
 export default function PostPage({ params }: { params: { slug: string } }) {
-  const [post, setPost] = useState<Post | null>(() => {
-    return posts.find((p) => p.slug === params.slug) || null;
-  });
+  const initialPost = posts.find((p) => p.slug === params.slug) || null;
+
+  const [post, setPost] = useState<Post | null>(initialPost);
   const [isLiked, setIsLiked] = useState(false);
 
   useEffect(() => {
-    const foundPost = posts.find((p) => p.slug === params.slug);
-    if (foundPost) {
-      setPost(foundPost);
-    } else {
+    if (!post) {
+      const foundPost = posts.find((p) => p.slug === params.slug);
+      if (foundPost) {
+        setPost(foundPost);
+      } else {
         notFound();
+      }
     }
-  }, [params.slug]);
+  }, [params.slug, post]);
 
   const handleLike = () => {
     if (post) {
@@ -43,7 +44,12 @@ export default function PostPage({ params }: { params: { slug: string } }) {
   };
   
   if (!post) {
-    return null; // Or a loading skeleton
+    const staticPost = posts.find((p) => p.slug === params.slug);
+    if (!staticPost) {
+        notFound();
+    }
+    setPost(staticPost);
+    return null;
   }
 
   return (
