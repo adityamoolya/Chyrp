@@ -1,9 +1,10 @@
+// src/app/dashboard/posts/[slug]/page.tsx
 'use client';
 import { notFound } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { format } from 'date-fns';
-import { posts, users } from '@/lib/data';
+import { posts } from '@/lib/data';
 import type { Post } from '@/lib/types';
 import { FeatherRenderer } from '@/components/feather/renderer';
 import { Badge } from '@/components/ui/badge';
@@ -16,13 +17,17 @@ import { SimilarPostsCard } from '@/components/ai/similar-posts-card';
 import { CommentsSection } from '@/components/comments-section';
 
 export default function PostPage({ params }: { params: { slug: string } }) {
-  const [post, setPost] = useState<Post | null>(null);
+  const [post, setPost] = useState<Post | null>(() => {
+    return posts.find((p) => p.slug === params.slug) || null;
+  });
   const [isLiked, setIsLiked] = useState(false);
 
   useEffect(() => {
     const foundPost = posts.find((p) => p.slug === params.slug);
     if (foundPost) {
       setPost(foundPost);
+    } else {
+        notFound();
     }
   }, [params.slug]);
 
@@ -38,14 +43,7 @@ export default function PostPage({ params }: { params: { slug: string } }) {
   };
   
   if (!post) {
-    // TODO: Ideally show a loading skeleton here
-    const staticPost = posts.find((p) => p.slug === params.slug);
-    if (!staticPost) {
-        notFound();
-    }
-    // Set post for initial render to avoid layout shift, but it will be updated by useEffect
-    setPost(staticPost);
-    return null; // or a skeleton loader
+    return null; // Or a loading skeleton
   }
 
   return (
