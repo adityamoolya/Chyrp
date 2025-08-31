@@ -1,7 +1,10 @@
+'use client';
 import { notFound } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { format } from 'date-fns';
 import { posts, users } from '@/lib/data';
+import type { Post } from '@/lib/types';
 import { FeatherRenderer } from '@/components/feather/renderer';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -12,17 +15,37 @@ import { SummaryCard } from '@/components/ai/summary-card';
 import { SimilarPostsCard } from '@/components/ai/similar-posts-card';
 import { CommentsSection } from '@/components/comments-section';
 
-export async function generateStaticParams() {
-  return posts.map((post) => ({
-    slug: post.slug,
-  }));
-}
-
 export default function PostPage({ params }: { params: { slug: string } }) {
-  const post = posts.find((p) => p.slug === params.slug);
+  const [post, setPost] = useState<Post | null>(null);
+  const [isLiked, setIsLiked] = useState(false);
 
+  useEffect(() => {
+    const foundPost = posts.find((p) => p.slug === params.slug);
+    if (foundPost) {
+      setPost(foundPost);
+    }
+  }, [params.slug]);
+
+  const handleLike = () => {
+    if (post) {
+      setPost(prevPost => {
+        if (!prevPost) return null;
+        const newLikeCount = isLiked ? prevPost.like_count - 1 : prevPost.like_count + 1;
+        return { ...prevPost, like_count: newLikeCount };
+      });
+      setIsLiked(!isLiked);
+    }
+  };
+  
   if (!post) {
-    notFound();
+    // TODO: Ideally show a loading skeleton here
+    const staticPost = posts.find((p) => p.slug === params.slug);
+    if (!staticPost) {
+        notFound();
+    }
+    // Set post for initial render to avoid layout shift, but it will be updated by useEffect
+    setPost(staticPost);
+    return null; // or a skeleton loader
   }
 
   return (
@@ -66,8 +89,8 @@ export default function PostPage({ params }: { params: { slug: string } }) {
         
         <div className="flex items-center justify-between text-muted-foreground">
             <div className="flex items-center gap-6">
-                <Button variant="ghost" size="sm" className="flex items-center gap-2">
-                    <Heart className="h-4 w-4" /> {post.like_count} Likes
+                <Button variant="ghost" size="sm" className="flex items-center gap-2" onClick={handleLike}>
+                    <Heart className={`h-4 w-4 ${isLiked ? 'text-red-500 fill-current' : ''}`} /> {post.like_count} Likes
                 </Button>
                 <span className="flex items-center gap-2"><MessageCircle className="h-4 w-4" /> {post.comment_count} Comments</span>
                 <span className="flex items-center gap-2"><Eye className="h-4 w-4" /> {post.view_count} Views</span>
