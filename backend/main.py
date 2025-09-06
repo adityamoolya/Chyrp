@@ -7,21 +7,35 @@ from database import engine, SessionLocal
 from routers import blog, auth, comment
 import logging
 import os
+import sys
 
 # Set up logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Create database tables
-models.Base.metadata.create_all(bind=engine)
+def create_uploads_directory():
+    """Create uploads directory if it doesn't exist"""
+    try:
+        if not os.path.exists("uploads"):
+            os.makedirs("uploads")
+            logger.info("Created uploads directory")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to create uploads directory: {e}")
+        return False
 
-# Create uploads directory if it doesn't exist
-if not os.path.exists("uploads"):
-    os.makedirs("uploads")
-    logger.info("Created uploads directory")
+def setup_database():
+    """Set up database tables"""
+    try:
+        models.Base.metadata.create_all(bind=engine)
+        logger.info("Database tables created/verified")
+        return True
+    except Exception as e:
+        logger.error(f"Database setup failed: {e}")
+        return False
 
-# Test database connection
 def test_db_connection():
+    """Test database connection"""
     try:
         db = SessionLocal()
         db.execute(text("SELECT 1"))
@@ -32,8 +46,14 @@ def test_db_connection():
         logger.error(f"❌ Database connection failed: {str(e)}")
         return False
 
-# Test the connection
-db_connected = test_db_connection()
+# Initialize components
+try:
+    create_uploads_directory()
+    setup_database()
+    db_connected = test_db_connection()
+except Exception as e:
+    logger.critical(f"Failed to initialize application: {e}")
+    # Don't crash immediately, let the app start but log the error
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -45,35 +65,41 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Change this to your frontend URL in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Include routers
-app.include_router(auth.router)
-app.include_router(blog.router)
-app.include_router(comment.router)
+try:
+    app.include_router(auth.router)
+    app.include_router(blog.router)
+    app.include_router(comment.router)
+    logger.info("Routers registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register routers: {e}")
 
-# Serve uploaded files (only if directory exists)
-if os.path.exists("uploads"):
-    app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-    logger.info("Serving uploads from filesystem")
-else:
-    logger.warning("Uploads directory does not exist, file serving disabled")
+# Serve uploaded files only if directory exists
+try:
+    if os.path.exists("uploads"):
+        app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+        logger.info("Serving uploads from filesystem")
+    else:
+        logger.warning("Uploads directory does not exist, file serving disabled")
+except Exception as e:
+    logger.error(f"Failed to setup static files: {e}")
 
 # Health check endpoint
 @app.get("/")
 def read_root():
-    status = "connected" if db_connected else "disconnected"
     return {
         "message": "Modern Chyrp API is running",
-        "database": status,
+        "status": "healthy",
         "docs": "/docs"
     }
 
-# Health check endpoint
+# Health check endpoint with database status
 @app.get("/health")
 def health_check():
     try:
@@ -84,22 +110,6 @@ def health_check():
     except Exception as e:
         return {"status": "unhealthy", "database": "disconnected", "error": str(e)}
 
-# Database info endpoint
-@app.get("/db-info")
-def db_info():
-    try:
-        db = SessionLocal()
-        if os.getenv("DATABASE_URL", "").startswith("postgresql"):
-            result = db.execute(text("""
-                SELECT table_name 
-                FROM information_schema.tables 
-                WHERE table_schema = 'public'
-            """))
-        else:
-            result = db.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
-        
-        tables = [row[0] for row in result]
-        db.close()
-        return {"tables": tables}
-    except Exception as e:
-        return {"error": str(e)}
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
