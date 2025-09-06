@@ -57,8 +57,8 @@ except Exception as e:
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="Modern Chyrp API",
-    description="A modern blogging platform API with multiple content types",
+    title="Chyrp",
+    description="backend of chryp",
     version="1.0.0"
 )
 
