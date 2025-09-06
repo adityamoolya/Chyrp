@@ -38,6 +38,7 @@ def get_blogs(db: Session, skip: int = 0, limit: int = 10, category: str = None,
 def get_blog(db: Session, blog_id: int):
     return db.query(models.Blog).filter(models.Blog.id == blog_id).first()
 
+# In crud.py
 def create_blog(db: Session, blog_data: dict, tags: list, author_id: int):
     # Get or create tags
     tag_objects = []

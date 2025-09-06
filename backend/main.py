@@ -15,6 +15,11 @@ logger = logging.getLogger(__name__)
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
 
+# Create uploads directory if it doesn't exist
+if not os.path.exists("uploads"):
+    os.makedirs("uploads")
+    logger.info("Created uploads directory")
+
 # Test database connection
 def test_db_connection():
     try:
@@ -51,8 +56,12 @@ app.include_router(auth.router)
 app.include_router(blog.router)
 app.include_router(comment.router)
 
-# Serve uploaded files
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+# Serve uploaded files (only if directory exists)
+if os.path.exists("uploads"):
+    app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+    logger.info("Serving uploads from filesystem")
+else:
+    logger.warning("Uploads directory does not exist, file serving disabled")
 
 # Health check endpoint
 @app.get("/")

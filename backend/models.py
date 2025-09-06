@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Table, Text
+from sqlalchemy import Column, Integer, LargeBinary, String, Boolean, DateTime, ForeignKey, Table, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -50,6 +50,11 @@ class Blog(Base):
     comments = relationship("Comment", back_populates="blog")
     tags = relationship("Tag", secondary=blog_tags, back_populates="blogs")
     likes = relationship("Like", back_populates="blog")
+
+
+    media_content = Column(LargeBinary, nullable=True)  # For storing file content directly
+    media_filename = Column(String(255), nullable=True)  # Original filename
+    media_type = Column(String(50), nullable=True) 
 
 class Category(Base):
     __tablename__ = "categories"

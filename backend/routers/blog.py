@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Response, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List, Optional, Annotated
 import os
@@ -40,6 +40,7 @@ def get_blog(blog_id: int, db: Session = Depends(get_db)):
     return db_blog
 
 # Create blog with file upload support
+# In routers/blog.py
 @router.post("/", response_model=schemas.Blog)
 def create_blog(
     title: str = Form(...),
@@ -54,23 +55,15 @@ def create_blog(
     current_user: schemas.User = Depends(get_current_active_user)
 ):
     # Handle file upload if present
-    media_path = None
+    media_content = None
+    media_filename = None
+    media_type = None
+    
     if file and content_type in ["photo", "video", "audio", "uploader"]:
-        # Create uploads directory if it doesn't exist
-        if not os.path.exists("uploads"):
-            os.makedirs("uploads")
-        
-        # Generate unique filename
-        file_ext = file.filename.split(".")[-1]
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{current_user.id}_{timestamp}.{file_ext}"
-        file_path = os.path.join("uploads", filename)
-        
-        # Save file
-        with open(file_path, "wb") as f:
-            f.write(file.file.read())
-        
-        media_path = file_path
+        # Read file content
+        media_content = file.file.read()
+        media_filename = file.filename
+        media_type = file.content_type
     
     # Process markdown if needed
     if content_format == "markdown":
@@ -84,10 +77,13 @@ def create_blog(
         "content_format": content_format,
         "published": published,
         "category_id": category_id,
-        "media_path": media_path
+        "media_content": media_content,
+        "media_filename": media_filename,
+        "media_type": media_type
     }
     
     return crud.create_blog(db=db, blog_data=blog_data, tags=tags, author_id=current_user.id)
+
 
 # Update blog
 @router.put("/{blog_id}", response_model=schemas.Blog)
@@ -157,3 +153,24 @@ def unlike_blog(
     
     crud.delete_like(db=db, user_id=current_user.id, blog_id=blog_id)
     return {"message": "Blog unliked successfully"}
+
+
+
+# In routers/blog.py
+@router.get("/{blog_id}/media")
+def get_blog_media(blog_id: int, db: Session = Depends(get_db)):
+    db_blog = crud.get_blog(db, blog_id=blog_id)
+    if db_blog is None or db_blog.media_content is None:
+        raise HTTPException(status_code=404, detail="Media not found")
+    
+    # Increment view count
+    db_blog.views += 1
+    db.commit()
+    db.refresh(db_blog)
+    
+    # Return the file with appropriate headers
+    return Response(
+        content=db_blog.media_content,
+        media_type=db_blog.media_type or "application/octet-stream",
+        headers={"Content-Disposition": f"inline; filename={db_blog.media_filename}"}
+    )

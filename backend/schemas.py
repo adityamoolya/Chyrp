@@ -81,6 +81,9 @@ class BlogBase(BaseModel):
     content_format: str = "text"
     published: bool = True
     category_id: Optional[int] = None
+    media_content: Optional[str] = None  # Base64 encoded file content
+    media_filename: Optional[str] = None
+    media_type: Optional[str] = None
 
 class BlogCreate(BlogBase):
     tags: List[str] = []
